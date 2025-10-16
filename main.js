@@ -2,16 +2,18 @@ var http=require('http');
 var fs=require('fs');
 var url=require('url');
 var qs=require('querystring');
+var path=require('path');
+var sanitizeHtml=require('sanitize-html');
 
-var template=require('./lib/template.js');
+var template=require('./node_modules/template.js');
 var app=http.createServer((req,res)=> {
 	var _url=req.url;
 	
 	fs.readdir('./data', 'utf-8', (err, files) => {
 		var list=template.list(files);
 		var queryData=url.parse(_url,true).query;
-		var title=queryData.id;
-		var pathname=url.parse(_url, true).pathname;
+		var title=sanitizeHtml(queryData.id);
+		var pathname=sanitizeHtml(url.parse(_url, true).pathname);
 // 메인 페이지	
 		if (pathname==='/') {
 			if (title===undefined) {
@@ -23,15 +25,18 @@ var app=http.createServer((req,res)=> {
 				`<a href="/create">create</a>`));
 // 파일 페이지
 			} else {
-				fs.readFile(`data/${title}`, 'utf-8', (err, data) => {
+				var filteredId=path.parse(title).base;
+				fs.readFile(`data/${filteredId}`, 'utf-8', (err, data) => {
 					
+					var sanitizedTitle=sanitizeHtml(title);
+					var sanitizedData=sanitizeHtml(data);
 					res.writeHead(200);
-					res.end(template.html(title,list,`<h2>${title}</h2>
-					<p>${data}</p>`,
+					res.end(template.html(title,list,`<h2>${sanitizedTitle}</h2>
+					<p>${sanitizedData}</p>`,
 					`<a href="/create">create</a>
-					<a href="/update?id=${title}">update</a>
+					<a href="/update?id=${sanitizedTitle}">update</a>
 					<form action="delete_process" method="POST">
-					<input type="hidden" name="id" value="${title}">
+					<input type="hidden" name="id" value="${sanitizedTitle}">
 					<input type="submit" value="delete">
 					</from>
 					`
@@ -71,7 +76,8 @@ var app=http.createServer((req,res)=> {
 			});
 // 업데이트 페이지
 		} else if (pathname==='/update') {
-			fs.readFile(`data/${title}`, 'utf-8', (err, description) => {
+			var filteredId=path.parse(title).base;
+			fs.readFile(`data/${filteredId}`, 'utf-8', (err, description) => {
 				res.writeHead(200);
 				res.end(template.html(title,list,`<form action="/update_process" method="POST">
 				<input type="hidden" name="id" value="${title}">
